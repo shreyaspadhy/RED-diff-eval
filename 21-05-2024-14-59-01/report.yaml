@@ -1,0 +1,79 @@
+base_path: /localdata/AlexanderDenker/score_based_baseline/finetuning/phase_retrieval
+ckpt_path: ''
+data: {}
+dataset:
+  meta_root: _data
+  name: imagenet
+  root: /localdata/AlexanderDenker/ImageNet
+  subset_txt: imagenet_10k.txt
+  use_default_loader: false
+  val_subset_txt: imagenet_1k_val.txt
+device: cuda
+finetune:
+  target_score_matching: false
+finetune_model_config:
+  attention_resolutions: 32,16
+  channel_mult: ''
+  cond_model: true
+  dropout: 0.0
+  epsilon_based: true
+  image_size: 256
+  in_channels: 15
+  init_scaling_bias: 0.001
+  learn_sigma: false
+  num_channels: 64
+  num_head_channels: 16
+  num_heads: 4
+  num_heads_upsample: -1
+  num_res_blocks: 1
+  num_training_pts: 2000
+  out_channels: 3
+  resamp_with_conv: true
+  resblock_updown: true
+  type: openai
+  use_cross_attention: false
+  use_fp16: false
+  use_loggrad: true
+  use_new_attention_order: false
+  use_residual: true
+  use_scale_shift_norm: true
+  use_x0hat: true
+  var_type: fixedsmall
+forward_op:
+  noise_std: 0.0
+  oversample: 2.0
+image_path: test
+inversion_task: phase_retrieval
+model_trained_on: imagenet
+model_type: mlp
+run_id: ''
+sde: ddpm
+seed: 1
+train_model_on: imagenet
+training:
+  batch_size: 4
+  ema_decay: 0.999
+  ema_warm_start_steps: 400
+  epochs: 200
+  log_freq: 1
+  loss_weight: 'no'
+  lr: 0.0001
+  lr_annealing: true
+  save_model_every_n_epoch: 10
+  sigma_data_sq: 0.5
+validation:
+  batch_size: 6
+  eta: 1.0
+  num_steps: 100
+  perform_eval: false
+  psnr_batch_size: 6
+  psnr_sample_freq: -1
+  sample_freq: 1
+  use_ema: true
+wandb:
+  code_dir: ./
+  entity: alexanderdenker
+  log: true
+  log_artifact: false
+  name: eval of 7unzd36w
+  project: diff-models_finetuning

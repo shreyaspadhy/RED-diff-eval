@@ -1,11 +1,13 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved
 
-from models.classifier_guidance_model import ClassifierGuidanceModel
+import time
+
 import torch
 from omegaconf import DictConfig
 
 from models.classifier_guidance_model import ClassifierGuidanceModel
 from utils.degredations import build_degredation_model
+
 from .ddim import DDIM
 
 
@@ -33,7 +35,7 @@ class DDRM(DDIM):
             # setup vectors used in the algorithm
             singulars = H.singulars()
             Sigma = torch.zeros(x.shape[1] * x.shape[2] * x.shape[3], device=x.device)
-            
+
             ## TODO: a hack for free form inpainting, can use batch size of 1 only.
             singulars = singulars.view(-1)
             ##
@@ -85,6 +87,7 @@ class DDRM(DDIM):
 
             # iterate over the timesteps
             for ti, si in zip(reversed(ts), reversed(ss)):
+                start = time.time()
                 t = torch.ones(n).to(x.device).long() * ti
                 s = torch.ones(n).to(x.device).long() * si
                 alpha_t = self.diffusion.alpha(t).view(-1, 1, 1, 1)
@@ -95,9 +98,7 @@ class DDRM(DDIM):
 
                 # variational inference conditioned on y
                 sigma = (1 - alpha_t).sqrt()[0, 0, 0, 0] / alpha_t.sqrt()[0, 0, 0, 0]
-                sigma_s = (1 - alpha_s).sqrt()[0, 0, 0, 0] / alpha_s.sqrt()[
-                    0, 0, 0, 0
-                ]
+                sigma_s = (1 - alpha_s).sqrt()[0, 0, 0, 0] / alpha_s.sqrt()[0, 0, 0, 0]
                 xt_mod = xt / alpha_t.sqrt()[0, 0, 0, 0]
                 V_t_x = H.Vt(xt_mod)
                 SVt_x = (V_t_x * Sigma)[:, : U_t_y.shape[1]]
@@ -153,5 +154,7 @@ class DDRM(DDIM):
 
                 x0_s.append(x0_pred.to("cpu"))
                 xt_s.append(xs.to("cpu"))
+                end = time.time()
+                print(f"Time taken for timestep {ti}: {end - start}")
 
         return list(reversed(xt_s)), list(reversed(x0_s))

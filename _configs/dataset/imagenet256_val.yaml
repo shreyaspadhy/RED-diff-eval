@@ -1,11 +1,15 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved
 
 name: "ImageNet_256x256"
-root: "/home/mmardani/research/datasets/imagenet-root"
+# root: "/home/mmardani/research/datasets/imagenet-root" 
+root: "/anfs/gpucluster/datasets/imagenet/isv/"
 split: "val"
 image_size: 256
 channels: 3
-meta_root: "/home/mmardani/research/datasets/imagenet-root"
+# meta_root: "/home/mmardani/research/datasets/imagenet-root"
+meta_root: "/home/sp2058/adapt-diffusions/_data"
 transform: "diffusion"
 #subset_txt: "/home/mmardani/research/stable-diffusion-sampling-gitlab/pgdm/misc/sr3_top1k.txt"  
-subset_txt: "/home/mmardani/research/stable-diffusion-sampling-gitlab/pgdm/misc/dgp_top1k.txt"  
+# subset_txt: "/home/mmardani/research/stable-diffusion-sampling-gitlab/pgdm/misc/dgp_top1k.txt"  
+subset_txt: "/home/sp2058/RED-diff/misc/dgp_top1k.txt"
+# subset_txt: "/home/sp2058/RED-diff/misc/fish_only.txt"

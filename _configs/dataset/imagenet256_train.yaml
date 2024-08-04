@@ -5,6 +5,6 @@ root: "_data"
 split: "train"
 image_size: 256
 channels: 3
-meta_root: "data/imagenet"
+meta_root: "/home/sp2058/adapt-diffusions/_data"
 transform: "diffusion"
 subset_txt: ""

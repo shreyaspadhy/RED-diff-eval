@@ -15,7 +15,6 @@ hydra-core
 clean-fid
 wandb
 pytorch-lightning
-sklearn
 hydra-joblib-launcher
 hydra_colorlog
 python-dotenv

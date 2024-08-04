@@ -12,8 +12,7 @@ data:
 measurement:
   operator:
     name: nonlinear_blur
-    opt_yml_path: ./bkse/options/generate_blur/default.yml
-
+    opt_yml_path: /home/sp2058/RED-diff/bkse/options/generate_blur/default.yml
   noise: 
     name: gaussian
     sigma: 0.05

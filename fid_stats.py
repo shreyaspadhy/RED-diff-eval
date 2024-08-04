@@ -7,8 +7,11 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
+from cleanfid.fid import get_batch_features
+from cleanfid.inception_pytorch import InceptionV3
+from cleanfid.inception_torchscript import InceptionV3W
 from hydra.core.hydra_config import HydraConfig
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from PIL import Image
 from torchvision.transforms import Compose, ToTensor
 from tqdm import tqdm
@@ -16,26 +19,30 @@ from tqdm import tqdm
 from datasets import build_loader
 from utils.distributed import get_logger, init_processes
 
-from cleanfid.fid import get_batch_features
-from cleanfid.downloads_helper import check_download_url
-from cleanfid.inception_pytorch import InceptionV3
-from cleanfid.inception_torchscript import InceptionV3W
-
-
 """
 returns a functions that takes an image in range [0,255]
 and outputs a feature embedding vector
 """
-def feature_extractor(name="torchscript_inception", device=torch.device("cuda"), resize_inside=False):
+
+
+def feature_extractor(
+    name="torchscript_inception", device=torch.device("cuda"), resize_inside=False
+):
     if name == "torchscript_inception":
         path = "./" if platform.system() == "Windows" else "/tmp"
-        model = InceptionV3W(path, download=True, resize_inside=resize_inside).to(device)
+        model = InceptionV3W(path, download=True, resize_inside=resize_inside).to(
+            device
+        )
         model.eval()
-        def model_fn(x): return model(x)
+
+        def model_fn(x):
+            return model(x)
     elif name == "pytorch_inception":
         model = InceptionV3(output_blocks=[3], resize_input=False).to(device)
         model.eval()
-        def model_fn(x): return model(x/255)[0].squeeze(-1).squeeze(-1)
+
+        def model_fn(x):
+            return model(x / 255)[0].squeeze(-1).squeeze(-1)
     else:
         raise ValueError(f"{name} feature extractor not implemented")
     return model_fn
@@ -44,13 +51,21 @@ def feature_extractor(name="torchscript_inception", device=torch.device("cuda"),
 """
 Build a feature extractor for each of the modes
 """
+
+
 def build_feature_extractor(mode, device=torch.device("cuda")):
     if mode == "legacy_pytorch":
-        feat_model = feature_extractor(name="pytorch_inception", resize_inside=False, device=device)
+        feat_model = feature_extractor(
+            name="pytorch_inception", resize_inside=False, device=device
+        )
     elif mode == "legacy_tensorflow":
-        feat_model = feature_extractor(name="torchscript_inception", resize_inside=True, device=device)
+        feat_model = feature_extractor(
+            name="torchscript_inception", resize_inside=True, device=device
+        )
     elif mode == "clean":
-        feat_model = feature_extractor(name="torchscript_inception", resize_inside=False, device=device)
+        feat_model = feature_extractor(
+            name="torchscript_inception", resize_inside=False, device=device
+        )
     return feat_model
 
 
@@ -131,8 +146,12 @@ class Resizer:
             raise ValueError()
 
 
-def get_loader_features(loader, model=None, device=torch.device("cuda"), mode="clean", verbose=True):
-    loader.dataset.transform = Compose([loader.dataset.transform] + [ToNumpy(), Resizer(mode), ToTensor()])
+def get_loader_features(
+    loader, model=None, device=torch.device("cuda"), mode="clean", verbose=True
+):
+    loader.dataset.transform = Compose(
+        [loader.dataset.transform] + [ToNumpy(), Resizer(mode), ToTensor()]
+    )
     world_size = dist.get_world_size()
 
     model = build_feature_extractor(mode, device)
@@ -150,8 +169,12 @@ def get_loader_features(loader, model=None, device=torch.device("cuda"), mode="c
     return np_feats
 
 
-def get_moments(loader, model=None, device=torch.device("cuda"), mode="clean", verbose=True):
-    loader.dataset.transform = Compose([loader.dataset.transform] + [ToNumpy(), Resizer(mode), ToTensor()])
+def get_moments(
+    loader, model=None, device=torch.device("cuda"), mode="clean", verbose=True
+):
+    loader.dataset.transform = Compose(
+        [loader.dataset.transform] + [ToNumpy(), Resizer(mode), ToTensor()]
+    )
     world_size = dist.get_world_size()
 
     model = build_feature_extractor(mode, device)
@@ -167,12 +190,20 @@ def get_moments(loader, model=None, device=torch.device("cuda"), mode="clean", v
         features = get_batch_features(batch[0], model, device).astype(np.float64)
         if moment1 is None:
             moment1 = np.mean(features, axis=0)
-            moment2 = np.cov(features, rowvar=False, ddof=0) + (moment1.reshape([-1, 1]) @ moment1.reshape([1, -1]))
+            moment2 = np.cov(features, rowvar=False, ddof=0) + (
+                moment1.reshape([-1, 1]) @ moment1.reshape([1, -1])
+            )
         else:
             m1 = np.mean(features, axis=0)
-            m2 = np.cov(features, rowvar=False, ddof=0) + (m1.reshape([-1, 1]) @ m1.reshape([1, -1]))
-            moment1 = (moment1 * size + m1 * features.shape[0]) / (size + features.shape[0])
-            moment2 = (moment2 * size + m2 * features.shape[0]) / (size + features.shape[0])
+            m2 = np.cov(features, rowvar=False, ddof=0) + (
+                m1.reshape([-1, 1]) @ m1.reshape([1, -1])
+            )
+            moment1 = (moment1 * size + m1 * features.shape[0]) / (
+                size + features.shape[0]
+            )
+            moment2 = (moment2 * size + m2 * features.shape[0]) / (
+                size + features.shape[0]
+            )
         size = size + features.shape[0]
         if verbose:
             pbar.update(loader.batch_size * world_size)
@@ -180,53 +211,61 @@ def get_moments(loader, model=None, device=torch.device("cuda"), mode="clean", v
 
 
 def main(cfg: DictConfig):
-    torch.hub.set_dir(os.path.join(cfg.exp.root, 'hub'))
+    torch.hub.set_dir(os.path.join(cfg.exp.root, "hub"))
 
     logger = get_logger("fid", cfg)
     fid_root = os.path.join(cfg.exp.root, "fid_stats")
     os.makedirs(fid_root, exist_ok=True)
     loader = build_loader(cfg)
-    
+
     # print('cfg', cfg)
     # import pdb; pdb.set_trace()
 
     device = torch.device(f"cuda:{dist.get_rank()}")
 
     if cfg.mean_std_stats == False:
-        if '/' in cfg.save_path:
-            save_dir = '/'.join(cfg.save_path.split('/')[:-1])
+        if "/" in cfg.save_path:
+            save_dir = "/".join(cfg.save_path.split("/")[:-1])
             save_dir = os.path.join(fid_root, save_dir)
             os.makedirs(save_dir, exist_ok=True)
         save_path = f"{fid_root}/{cfg.save_path}.npy"
     else:
-        if '/' in cfg.save_path:
-            save_dir = '/'.join(cfg.save_path.split('/')[:-1])
+        if "/" in cfg.save_path:
+            save_dir = "/".join(cfg.save_path.split("/")[:-1])
             save_dir = os.path.join(fid_root, save_dir)
             os.makedirs(save_dir, exist_ok=True)
         save_path = f"{fid_root}/{cfg.save_path}_mean_std.npz"
 
     if os.path.exists(save_path):
-        logger.info(f'Stats already exists for file {save_path}.')
+        logger.info(f"Stats already exists for file {save_path}.")
         return
 
     if cfg.mean_std_stats == False:
-        logger.info('No mean/std stats. Memory inefficient but can be used for KID.')
-        features = get_loader_features(loader, device=device, mode=cfg.fid.mode, verbose=(dist.get_rank() == 0))
-        features = torch.from_numpy(features)
+        logger.info("No mean/std stats. Memory inefficient but can be used for KID.")
+        features = get_loader_features(
+            loader, device=device, mode=cfg.fid.mode, verbose=(dist.get_rank() == 0)
+        )
+        features = torch.from_numpy(features).cuda()
 
-        features_list = [torch.zeros_like(features) for i in range(dist.get_world_size())]
+        features_list = [
+            torch.zeros_like(features).cuda() for i in range(dist.get_world_size())
+        ]
         dist.gather(features, features_list, dst=0)
 
         if dist.get_rank() == 0:
             features = torch.stack(features_list, dim=1)
             # TODO: check if this is correct
             features = features.reshape(-1, features.size(-1))
-            features_npy = features.numpy()
+            features_npy = features.cpu().numpy()
             np.save(save_path, features_npy)
             logger.info(f"Save an array of shape {features_npy.shape} to {save_path}")
     else:
-        logger.info('Only save mean/std stats. Memory efficient, but can only be used for FID.')
-        moment1, moment2, size = get_moments(loader, device=device, mode=cfg.fid.mode, verbose=(dist.get_rank() == 0))
+        logger.info(
+            "Only save mean/std stats. Memory efficient, but can only be used for FID."
+        )
+        moment1, moment2, size = get_moments(
+            loader, device=device, mode=cfg.fid.mode, verbose=(dist.get_rank() == 0)
+        )
         mu = moment1
         sigma = moment2 - moment1.reshape([-1, 1]) @ moment1.reshape([1, -1])
         sigma = sigma * size / (size - 1)
@@ -240,7 +279,6 @@ def main(cfg: DictConfig):
         if dist.get_rank() == 0:
             np.savez(save_path, mu=mu, sigma=sigma)
             logger.info(f"Save two arrays of shape {mu.shape} to {save_path}")
-
 
     dist.barrier()
 
@@ -259,12 +297,15 @@ def main_dist(cfg: DictConfig):
         num_process_per_node = cfg.dist.num_processes_per_node
         world_size = num_proc_node * num_process_per_node
         mp.spawn(
-            init_processes, args=(world_size, main, cfg, cwd), nprocs=world_size, join=True,
+            init_processes,
+            args=(world_size, main, cfg, cwd),
+            nprocs=world_size,
+            join=True,
         )
     else:
         init_processes(0, size, main, cfg, cwd)
-        
-    #print('cfg', cfg)
+
+    # print('cfg', cfg)
 
 
 if __name__ == "__main__":
