@@ -8,7 +8,11 @@ dist/
 
 src/
 
+root/*
+benchmark/*
 *.png
+
+ILSVRC2012*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

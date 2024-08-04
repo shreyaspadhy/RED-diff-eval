@@ -62,7 +62,8 @@ class DPS(DDIM):
             )
             mat = ((y_0 - H.H(x0_pred)).reshape(n, -1) ** 2).sum()
 
-            grad_term = torch.autograd.grad(mat, xt, retain_graph=True)[0]
+            # grad_term = torch.autograd.grad(mat, xt, retain_graph=True)[0]
+            grad_term = torch.autograd.grad(mat, x0_pred, retain_graph=True)[0]
 
             if self.original:
                 coeff = self.grad_term_weight / mat_norm.reshape(-1, 1, 1, 1)
@@ -83,7 +84,7 @@ class DPS(DDIM):
             xt = xs
 
             end = time.time()
-            print(f"Time taken for iteration {ti}: {end - start}")
+            # print(f"Time taken for iteration {ti}: {end - start}")
 
         return list(reversed(xt_s)), list(reversed(x0_s))
 
